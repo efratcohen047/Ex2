@@ -15,10 +15,12 @@ public class SCell implements Cell {
 
     @Override
     public int getOrder() {
-        // Add your code here
-
-        return 0;
-        // ///////////////////
+        if (isNumber(getData())) {
+            return 1;    // Numbers get order 1
+        } else if (isForm(getData())) {
+            return 2;    // Formulas get order 2
+        }
+        return 0;        // Text gets order 0
     }
 
     //@Override
