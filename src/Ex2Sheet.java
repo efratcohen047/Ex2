@@ -1,11 +1,12 @@
 import java.io.IOException;
+import java.util.Map;
 // Add your documentation below:
 
 public class Ex2Sheet implements Sheet {
     private Cell[][] table;
-    // Add your code here
+    private Map< String, Boolean> isForm;
 
-    // ///////////////////
+
     public Ex2Sheet(int x, int y) {
         table = new SCell[x][y];
         for(int i=0;i<x;i=i+1) {
@@ -22,26 +23,29 @@ public class Ex2Sheet implements Sheet {
     @Override
     public String value(int x, int y) {
         String ans = Ex2Utils.EMPTY_CELL;
-        // Add your code here
-
         Cell c = get(x,y);
-        if(c!=null) {ans = c.toString();}
-
-        /////////////////////
+        if (c != null) {
+            ans = c.toString();
+        }
         return ans;
     }
 
     @Override
     public Cell get(int x, int y) {
-        return table[x][y];
+        if (isIn( x, y)){
+            return table[x][y];
+        } else {
+            return null;
+        }
     }
 
     @Override
     public Cell get(String cords) {
+        CellEntry entry = new CellEntry(cords);
+        if (entry.isValid() && isIn(entry.getX(), entry.getY())){
+            return table [entry.getX()] [entry.getY()];
+        }
         Cell ans = null;
-        // Add your code here
-
-        /////////////////////
         return ans;
     }
 
@@ -55,35 +59,39 @@ public class Ex2Sheet implements Sheet {
     }
     @Override
     public void set(int x, int y, String s) {
-        Cell c = new SCell(s);
-        table[x][y] = c;
-        // Add your code here
-
-        /////////////////////
+        if (isIn( x, y)) {
+            Cell c = new SCell(s);
+            table[x][y] = c;
+            eval();
+        }
     }
+
     @Override
     public void eval() {
-        int[][] dd = depth();
-        // Add your code here
-
-        // ///////////////////
+        int[][] depths = depth();
+        for (int i = 0; i < width(); i++) {
+            for (int j = 0; j < height(); j++) {
+                if (get(i,j).getType() == Ex2Utils.FORM) {
+                    eval(i, j);
+                }
+            }
+        }
     }
 
     @Override
     public boolean isIn(int xx, int yy) {
-        boolean ans = xx>=0 && yy>=0;
-        // Add your code here
-
-        /////////////////////
-        return ans;
+        return xx >= 0 && yy >= 0 && xx < width() && yy < height();
     }
 
     @Override
     public int[][] depth() {
         int[][] ans = new int[width()][height()];
-        // Add your code here
-
-        // ///////////////////
+        for (int i = 0; i < width(); i++) {
+            for (int j = 0; j < height(); j++) {
+                Cell cell = get(i,j);
+                ans[i][j] = cell.getOrder();
+            }
+        }
         return ans;
     }
 
@@ -103,11 +111,13 @@ public class Ex2Sheet implements Sheet {
 
     @Override
     public String eval(int x, int y) {
-        String ans = null;
-        if(get(x,y)!=null) {ans = get(x,y).toString();}
-        // Add your code here
-
-        /////////////////////
-        return ans;
+        Cell cell = get(x,y);
+        if (cell != null) {
+            if (cell.getType() == Ex2Utils.FORM) {
+                return String.valueOf(SCell.computeForm(cell.getData()));
+            }
+            return cell.getData();
         }
+        return null;
+    }
 }

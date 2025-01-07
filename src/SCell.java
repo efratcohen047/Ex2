@@ -1,15 +1,11 @@
-
-// Add your documentation below:
-
 import java.util.ArrayList;
+import java.util.zip.Checksum;
 
 public class SCell implements Cell {
     private String line;
     private int type;
-    // Add your code here
 
     public SCell(String s) {
-        // Add your code here
         setData(s);
     }
 
@@ -23,17 +19,25 @@ public class SCell implements Cell {
         return 0;        // Text gets order 0
     }
 
-    //@Override
     @Override
     public String toString() {
+        if (isForm(getData())) {
+            double value = computeForm(getData());
+            return String.valueOf(value);
+        }
         return getData();
     }
 
     @Override
     public void setData(String s) {
-        // Add your code here
         line = s;
-        /////////////////////
+        if (isNumber(s)) {
+            setType(Ex2Utils.NUMBER);
+        } else if (isForm(s)) {
+            setType(Ex2Utils.FORM);
+        } else {
+            setType(Ex2Utils.TEXT);
+        }
     }
 
     @Override
@@ -54,7 +58,6 @@ public class SCell implements Cell {
     @Override
     public void setOrder(int t) {
         // Add your code here
-
     }
 
     public boolean isNumber(String txt) {
@@ -70,7 +73,6 @@ public class SCell implements Cell {
     public boolean isTxt(String text) {
         return !isNumber(text) && !isForm(text);
     }
-
 
     public static boolean isForm(String txt) {
         // Reject any spaces in formula
@@ -122,18 +124,15 @@ public class SCell implements Cell {
                 (c >= 'A' && c <= 'Z');  // Cell references
     }
 
-    public static double computeForm(String text) {
-        boolean isValid = isForm(text);
-        if (!isValid) {
-            return -1;
-        }
+    
 
-        try {
-            double number = Double.parseDouble(text);
-        } catch (NumberFormatException e) {
+    public static double computeForm(String text) {
+        if (!isForm(text)) {
             return -1;
         }
-        return -1;
+        String formula = text.substring(1);
+        computForm calculator = new computForm(formula);
+        return calculator.calculate();
     }
 
     public static class computForm {
@@ -212,7 +211,6 @@ public class SCell implements Cell {
             }
             return result;
         }
-
     }
 }
 
