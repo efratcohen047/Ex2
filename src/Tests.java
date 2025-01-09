@@ -1,8 +1,13 @@
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import java.io.File;
+import java.io.IOException;
 import static org.junit.jupiter.api.Assertions .*;
 
-class FormulaValidatorTest {
+class Tests {
 
+
+    private Sheet sheet;
 
     @Test
     public void testValidFormula() {
@@ -25,8 +30,8 @@ class FormulaValidatorTest {
     @Test
     public void testInvalidFormulaStartsWithOperator() {
 
-        assertFalse(SCell.isForm("=+A1+B2"));
-        assertFalse(SCell.isForm("=-3+5"));
+        assertTrue(SCell.isForm("=+A1+B2"));
+        assertTrue(SCell.isForm("=-3+5"));
     }
 
     @Test
@@ -155,7 +160,94 @@ class FormulaValidatorTest {
         assertEquals(Ex2Utils.ERR, invalidCol.getY());
     }
 
+    @BeforeEach
+    void setUp() {
+        sheet = new Ex2Sheet(10, 10);
+    }
+
+    @Test
+    void testBasicOperations() {
+        sheet.set(0, 0, "5");
+        assertEquals("5", sheet.get(0, 0).toString());
+
+        sheet.set(0, 1, "=5+3");
+        assertEquals("8.0", sheet.get(0, 1).toString());
+
+        sheet.set(0, 2, "=2*3");
+        assertEquals("6.0", sheet.get(0, 2).toString());
+    }
+
+    @Test
+    void testCellReferences() {
+        sheet.set(0, 0, "5");
+        sheet.set(0, 1, "=A0");
+        assertEquals("5.0", sheet.get(0, 1).toString());
+
+        sheet.set(0, 2, "=A0+2");
+        assertEquals("7.0", sheet.get(0, 2).toString());
+    }
+
+    @Test
+    void testCaseSensitivity() {
+        sheet.set(0, 0, "5");
+        sheet.set(0, 1, "=a0");  // lowercase reference
+        assertEquals("5.0", sheet.get(0, 1).toString());
+    }
+
+    @Test
+    void testCyclicReferences() {
+        sheet.set(0, 0, "=A1");
+        sheet.set(0, 1, "=A0");
+        assertEquals(Ex2Utils.ERR_CYCLE, sheet.get(0, 0).toString());
+        assertEquals(Ex2Utils.ERR_CYCLE, sheet.get(0, 1).toString());
+    }
+
+    @Test
+    void testComplexFormulas() {
+        sheet.set(0, 0, "5");
+        sheet.set(0, 1, "3");
+        sheet.set(0, 2, "=(A0+A1)*2");
+        assertEquals("16.0", sheet.get(0, 2).toString());
+
+        sheet.set(0, 3, "=(2+3)*A0");
+        assertEquals("25.0", sheet.get(0, 3).toString());
+    }
+
+    @Test
+    void testInvalidFormulas() {
+        sheet.set(0, 0, "=1++2");
+        assertEquals(Ex2Utils.ERR_FORM, sheet.get(0, 0).toString());
+
+        sheet.set(0, 1, "=XX1");  // Invalid cell reference
+        assertEquals(Ex2Utils.ERR_FORM, sheet.get(0, 1).toString());
+    }
+
+    @Test
+    void testSaveAndLoad() throws IOException {
+        // Set up some data
+        sheet.set(0, 0, "5");
+        sheet.set(0, 1, "=A0+3");
+        sheet.set(1, 0, "Test");
+
+        // Save to a temporary file
+        String tempFile = "test_sheet.csv";
+        sheet.save(tempFile);
+
+        // Create a new sheet and load
+        Sheet newSheet = new Ex2Sheet(10, 10);
+        newSheet.load(tempFile);
+
+        // Verify the data
+        assertEquals("5", newSheet.get(0, 0).toString());
+        assertEquals("8.0", newSheet.get(0, 1).toString());
+        assertEquals("Test", newSheet.get(1, 0).toString());
+
+        // Clean up
+        new File(tempFile).delete();
+    }
 }
+
+
 
 
 

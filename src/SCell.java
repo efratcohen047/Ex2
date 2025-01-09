@@ -3,9 +3,11 @@ public class SCell implements Cell {
     private int type;
     private int order;
     private Sheet parent;
+    private boolean isProcessing;
 
     public SCell(String s) {
         setData(s);
+        isProcessing = false;
     }
 
     public void setSheet(Sheet sheet) {
@@ -15,9 +17,12 @@ public class SCell implements Cell {
     @Override
     public int getOrder() {
         if (isNumber(getData())) {
-            return 1;    // Numbers get order 1
+            return 0;    // Numbers get order 0
         } else if (isForm(getData())) {
-            return 2;    // Formulas get order 2
+            if (isProcessing) {
+                return -1;  // Cycle detected
+            }
+            return 1;    // Formulas get order 1
         }
         return 0;        // Text gets order 0
     }
@@ -44,21 +49,50 @@ public class SCell implements Cell {
     public String toString() {
         if (type == Ex2Utils.FORM) {
             try {
-                // First replace cell references with their values
-                String processedFormula = processCellReferences(data);
-                double value = computeForm(processedFormula);
-                if (value == -1 && !processedFormula.equals("=-1")) {
-                    return Ex2Utils.ERR_FORM;
-                }
-                return String.valueOf(value);
+                return evalForm();  // Move all the formula evaluation logic to evalForm()
             } catch (Exception e) {
+                isProcessing = false;
+                type = Ex2Utils.ERR_FORM_FORMAT;
                 return Ex2Utils.ERR_FORM;
             }
         }
         return data;
     }
 
-    private String processCellReferences(String formula) {
+
+    private String evalForm() {
+        if (isProcessing) {
+            type = Ex2Utils.ERR_CYCLE_FORM;
+            return Ex2Utils.ERR_CYCLE;
+        }
+
+        isProcessing = true;
+        String processedFormula = processCellRef(data.toUpperCase());
+
+        if (processedFormula.equals(Ex2Utils.ERR_FORM)) {
+            type = Ex2Utils.ERR_FORM_FORMAT;
+            isProcessing = false;
+            return Ex2Utils.ERR_FORM;
+        }
+        if (processedFormula.equals(Ex2Utils.ERR_CYCLE)) {
+            type = Ex2Utils.ERR_CYCLE_FORM;
+            isProcessing = false;
+            return Ex2Utils.ERR_CYCLE;
+        }
+
+        double value = computeForm(processedFormula);
+        isProcessing = false;
+
+        if (value == -1 && !processedFormula.equals("=-1")) {
+            type = Ex2Utils.ERR_FORM_FORMAT;
+            return Ex2Utils.ERR_FORM;
+        }
+        return String.valueOf(value);
+    }
+
+
+
+    private String processCellRef(String formula) {
         if (parent == null || !formula.startsWith("=")) return formula;
 
         StringBuilder processed = new StringBuilder("=");
@@ -67,7 +101,7 @@ public class SCell implements Cell {
 
         // Skip the '=' sign
         for (int i = 1; i < formula.length(); i++) {
-            char c = formula.charAt(i);
+            char c = Character.toUpperCase(formula.charAt(i));  // Convert to uppercase immediately
 
             if (Character.isLetter(c) && i + 1 < formula.length() &&
                     Character.isDigit(formula.charAt(i + 1))) {
@@ -83,22 +117,33 @@ public class SCell implements Cell {
 
             if (buildingRef) {
                 // Process the cell reference
-                String ref = cellRef.toString().toUpperCase();
+                String ref = cellRef.toString();
                 Cell referencedCell = parent.get(ref);
+                if (referencedCell instanceof SCell && ((SCell)referencedCell).isProcessing) {
+                    return Ex2Utils.ERR_CYCLE;
+                }
+
                 if (referencedCell != null) {
                     if (referencedCell.getType() == Ex2Utils.NUMBER) {
                         processed.append(referencedCell.getData());
                     } else if (referencedCell.getType() == Ex2Utils.FORM) {
                         String value = referencedCell.toString();
-                        if (value.equals(Ex2Utils.ERR_FORM)) {
+                        if (value.equals(Ex2Utils.ERR_FORM) ||
+                                value.equals(Ex2Utils.ERR_CYCLE)) {
+                            return value;
+                        }
+                        // Make sure we're getting a numeric value
+                        try {
+                            double numValue = Double.parseDouble(value);
+                            processed.append(numValue);
+                        } catch (NumberFormatException e) {
                             return Ex2Utils.ERR_FORM;
                         }
-                        processed.append(value);
                     } else {
-                        return Ex2Utils.ERR_FORM;  // Text cells should return ERR_FORM
+                        return Ex2Utils.ERR_FORM;
                     }
                 } else {
-                    return Ex2Utils.ERR_FORM;  // Invalid reference should return ERR_FORM
+                    return Ex2Utils.ERR_FORM;
                 }
                 cellRef.setLength(0);
                 buildingRef = false;
@@ -109,27 +154,39 @@ public class SCell implements Cell {
 
         // Handle last cell reference if exists
         if (buildingRef) {
-            String ref = cellRef.toString().toUpperCase();
+            String ref = cellRef.toString();
             Cell referencedCell = parent.get(ref);
+            if (referencedCell instanceof SCell && ((SCell)referencedCell).isProcessing) {
+                return Ex2Utils.ERR_CYCLE;
+            }
+
             if (referencedCell != null) {
                 if (referencedCell.getType() == Ex2Utils.NUMBER) {
                     processed.append(referencedCell.getData());
                 } else if (referencedCell.getType() == Ex2Utils.FORM) {
                     String value = referencedCell.toString();
-                    if (value.equals(Ex2Utils.ERR_FORM)) {
+                    if (value.equals(Ex2Utils.ERR_FORM) ||
+                            value.equals(Ex2Utils.ERR_CYCLE)) {
+                        return value;
+                    }
+                    // Make sure we're getting a numeric value
+                    try {
+                        double numValue = Double.parseDouble(value);
+                        processed.append(numValue);
+                    } catch (NumberFormatException e) {
                         return Ex2Utils.ERR_FORM;
                     }
-                    processed.append(value);
                 } else {
-                    return Ex2Utils.ERR_FORM;  // Text cells should return ERR_FORM
+                    return Ex2Utils.ERR_FORM;
                 }
             } else {
-                return Ex2Utils.ERR_FORM;  // Invalid reference should return ERR_FORM
+                return Ex2Utils.ERR_FORM;
             }
         }
 
         return processed.toString();
     }
+
 
 
     @Override
