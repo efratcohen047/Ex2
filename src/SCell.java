@@ -1,5 +1,4 @@
 import java.util.ArrayList;
-import java.util.zip.Checksum;
 
 public class SCell implements Cell {
     private String line;
@@ -35,6 +34,8 @@ public class SCell implements Cell {
             setType(Ex2Utils.NUMBER);
         } else if (isForm(s)) {
             setType(Ex2Utils.FORM);
+            // Convert formula to uppercase
+            line = s.toUpperCase();
         } else {
             setType(Ex2Utils.TEXT);
         }
@@ -75,45 +76,50 @@ public class SCell implements Cell {
     }
 
     public static boolean isForm(String txt) {
-        // Reject any spaces in formula
-        if (txt.contains(" ")) return false;
-
-        // Must start with "="
-        if (!txt.startsWith("=")) return false;
+        if (txt == null || !txt.startsWith("=")) return false;
         txt = txt.substring(1);
 
-        int balance = 0;  // Track parentheses matching
-        char lastChar = ' ';
+        // Empty formula
+        if (txt.isEmpty()) return false;
+
+        // Track parentheses
+        int parens = 0;
+        char prev = ' ';
 
         for (int i = 0; i < txt.length(); i++) {
             char c = txt.charAt(i);
 
-            // Track opening/closing parentheses
-            if (c == '(') balance++;
-            if (c == ')') balance--;
-            if (balance < 0) return false;  // Too many closing parentheses
-
-            // Operators validation
-            if (isOperator(c)) {
-                // Can't start/end with operator
-                if (i == 0 || i == txt.length() - 1) return false;
-                // Can't have consecutive operators
-                if (isOperator(lastChar)) return false;
+            // Check valid characters
+            if (!Character.isDigit(c) &&
+                    !Character.isLetter(c) &&
+                    c != '+' && c != '-' &&
+                    c != '*' && c != '/' &&
+                    c != '(' && c != ')' &&
+                    c != '.') {
+                return false;
             }
 
-            // Verify only valid characters used
-            if (!isValidChar(c)) return false;
+            // Track parentheses
+            if (c == '(') parens++;
+            if (c == ')') {
+                parens--;
+                if (parens < 0) return false;
+            }
 
-            lastChar = c;
+            // No consecutive operators
+            if (isOperator(c) && isOperator(prev)) return false;
+
+            prev = c;
         }
 
-        return balance == 0;  // Ensure all parentheses are matched
+        // Ensure balanced parentheses
+        return parens == 0;
     }
 
-    // Helper to check operators (+,-,*,/)
     private static boolean isOperator(char c) {
         return c == '+' || c == '-' || c == '*' || c == '/';
     }
+
 
     // Helper to check if character is allowed in formula
     private static boolean isValidChar(char c) {
@@ -124,16 +130,84 @@ public class SCell implements Cell {
                 (c >= 'A' && c <= 'Z');  // Cell references
     }
 
-    
 
     public static double computeForm(String text) {
         if (!isForm(text)) {
             return -1;
         }
-        String formula = text.substring(1);
-        computForm calculator = new computForm(formula);
-        return calculator.calculate();
+
+        try {
+            String formula = text.substring(1); // Remove '='
+
+            // Handle parentheses first
+            while (formula.contains("(")) {
+                int start = formula.lastIndexOf("(");
+                int end = formula.indexOf(")", start);
+                if (end == -1) return -1; // Unmatched parentheses
+
+                // Compute what's inside parentheses
+                String inside = formula.substring(start + 1, end);
+                double innerResult = evaluateExpression(inside);
+
+                // Replace parentheses and their content with the result
+                formula = formula.substring(0, start) + innerResult + formula.substring(end + 1);
+            }
+
+            return evaluateExpression(formula);
+        } catch (Exception e) {
+            return -1;
+        }
     }
+
+    private static double evaluateExpression(String expr) {
+        try {
+            // If it's just a number, return it
+            if (expr.matches("-?\\d+(\\.\\d+)?")) {
+                return Double.parseDouble(expr);
+            }
+
+            // Find the rightmost operator with lowest precedence
+            int lastAdd = expr.lastIndexOf('+');
+            int lastSub = expr.lastIndexOf('-');
+            int lastMul = expr.lastIndexOf('*');
+            int lastDiv = expr.lastIndexOf('/');
+
+            // Handle addition/subtraction
+            if (lastAdd >= 0 || lastSub >= 0) {
+                int opIndex = Math.max(lastAdd, lastSub);
+                char operator = expr.charAt(opIndex);
+
+                String leftStr = expr.substring(0, opIndex).trim();
+                String rightStr = expr.substring(opIndex + 1).trim();
+
+                double left = evaluateExpression(leftStr);
+                double right = evaluateExpression(rightStr);
+
+                return operator == '+' ? left + right : left - right;
+            }
+
+            // Handle multiplication/division
+            if (lastMul >= 0 || lastDiv >= 0) {
+                int opIndex = Math.max(lastMul, lastDiv);
+                char operator = expr.charAt(opIndex);
+
+                String leftStr = expr.substring(0, opIndex).trim();
+                String rightStr = expr.substring(opIndex + 1).trim();
+
+                double left = evaluateExpression(leftStr);
+                double right = evaluateExpression(rightStr);
+
+                return operator == '*' ? left * right : left / right;
+            }
+
+            // If we get here, something went wrong
+            return -1;
+
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
 
     public static class computForm {
         private ArrayList<Double> priorities;
@@ -150,7 +224,9 @@ public class SCell implements Cell {
         private void mapPriorities() {
             for (int i = 0; i < formula.length(); i++) {
                 char c = formula.charAt(i);
-                if (Character.isDigit(c)) {
+                if (Character.isDigit(c) || c == '.') {
+                    priorities.add(null);
+                } else if (c == '(' || c == ')') {
                     priorities.add(null);
                 } else {
                     if (c == '+' || c == '-') {
@@ -176,8 +252,28 @@ public class SCell implements Cell {
         }
 
         public double calculate() {
-            if (formula.length() == 1) {
+            // Handle parentheses first
+            if (formula.contains("(")) {
+                int start = formula.lastIndexOf("(");
+                int end = formula.indexOf(")", start);
+                if (end == -1) return -1; // Unmatched parentheses
+
+                String inner = formula.substring(start + 1, end);
+                computForm innerCalc = new computForm(inner);
+                double innerResult = innerCalc.calculate();
+
+                String newFormula = formula.substring(0, start) +
+                        innerResult +
+                        formula.substring(end + 1);
+                return new computForm(newFormula).calculate();
+            }
+
+            if (formula.length() == 0) return 0;
+
+            try {
                 return Double.parseDouble(formula);
+            } catch (NumberFormatException e) {
+                // Continue with operation processing
             }
 
             int opIndex = findNextOperation();
@@ -193,23 +289,45 @@ public class SCell implements Cell {
             return newCalc.calculate();
         }
 
+
         private double getResult(int opIndex) {
-            double num1 = Double.parseDouble(formula.substring(opIndex - 1, opIndex));
-            double num2 = Double.parseDouble(formula.substring(opIndex + 1, opIndex + 2));
+            try {
+                StringBuilder num1Str = new StringBuilder();
+                StringBuilder num2Str = new StringBuilder();
 
-            double result = 0;
-            char operator = formula.charAt(opIndex);
+                // Get first number
+                int i = opIndex - 1;
+                while (i >= 0 && (Character.isDigit(formula.charAt(i)) || formula.charAt(i) == '.')) {
+                    num1Str.insert(0, formula.charAt(i));
+                    i--;
+                }
 
-            if (operator == '+') {
-                result = num1 + num2;
-            } else if (operator == '-') {
-                result = num1 - num2;
-            } else if (operator == '*') {
-                result = num1 * num2;
-            } else if (operator == '/') {
-                result = num1 / num2;
+                // Get second number
+                i = opIndex + 1;
+                while (i < formula.length() && (Character.isDigit(formula.charAt(i)) || formula.charAt(i) == '.')) {
+                    num2Str.append(formula.charAt(i));
+                    i++;
+                }
+
+                double num1 = Double.parseDouble(num1Str.toString());
+                double num2 = Double.parseDouble(num2Str.toString());
+                char operator = formula.charAt(opIndex);
+
+                switch (operator) {
+                    case '+':
+                        return num1 + num2;
+                    case '-':
+                        return num1 - num2;
+                    case '*':
+                        return num1 * num2;
+                    case '/':
+                        return num1 / num2;
+                    default:
+                        return -1;
+                }
+            } catch (Exception e) {
+                return -1;
             }
-            return result;
         }
     }
 }

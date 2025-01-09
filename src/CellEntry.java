@@ -1,29 +1,30 @@
-// Add your documentation below:
-
-public class CellEntry  implements Index2D {
+public class CellEntry implements Index2D {
     private String index;
     private int x, y;
 
-    public CellEntry(String index){
-        this.index = index.toUpperCase();
+    public CellEntry(String index) {
+        this.index = index;
         parseIndex();
     }
 
-    private void parseIndex(){
-        if (isValid()){
-            char column = index.charAt(0);
-            String row = index.substring(1);
-            x = column - 'A';
-            y = Integer.parseInt(row);
-        } else {
-            x = -1;
-            y = -1;
-        }
-    }
+    private void parseIndex() {
+        // Reset to invalid state first
+        x = Ex2Utils.ERR;
+        y = Ex2Utils.ERR;
 
-    @Override
-    public String toString(){
-        return index;
+        if (isValid()) {
+            // Get the column letter and convert to number (A=0, B=1, etc)
+            char column = index.charAt(0);
+            x = column - 'A';
+
+            // Get the row number from the rest of the string
+            try {
+                y = Integer.parseInt(index.substring(1));
+            } catch (NumberFormatException e) {
+                x = Ex2Utils.ERR;
+                y = Ex2Utils.ERR;
+            }
+        }
     }
 
     @Override
@@ -31,23 +32,34 @@ public class CellEntry  implements Index2D {
         if (index == null || index.length() < 2) {
             return false;
         }
-        char column = index.charAt(0);
-        String row = index.substring(1);
-        if (!(column >= 'A' && column <= 'Z')) {
+
+        // Check first character is A-Z
+        char firstChar = index.charAt(0);
+        if (firstChar < 'A' || firstChar > 'Z') {
             return false;
         }
+
+        // Check rest is a valid number 0-99
         try {
-            int rowNumber = Integer.parseInt(row);
-            return rowNumber >= 0 && rowNumber <= 99;
-        }
-        catch (NumberFormatException e) {
+            int rowNum = Integer.parseInt(index.substring(1));
+            return rowNum >= 0 && rowNum < 100;
+        } catch (NumberFormatException e) {
             return false;
         }
     }
 
     @Override
-    public int getX() {return Ex2Utils.ERR;}
+    public int getX() {
+        return x;
+    }
 
     @Override
-    public int getY() {return Ex2Utils.ERR;}
+    public int getY() {
+        return y;
+    }
+
+    @Override
+    public String toString() {
+        return index;
+    }
 }
