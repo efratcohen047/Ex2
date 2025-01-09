@@ -123,11 +123,12 @@ public class Ex2GUI {
 	private static void inputCell(int xx,int yy) {
 		if(table.isIn(xx,yy)) {
 			Cell cc = table.get(xx,yy);
-			String ww = cord+": "+cc.toString()+" : ";
+			String cellRef = Ex2Utils.ABC[xx] + yy;
+			String ww = cellRef + ": " + cc.toString();
 			StdDrawEx2.text(Ex2Utils.GUI_X_START, Ex2Utils.MAX_X-1, ww);
 			StdDrawEx2.show();
 			if(Ex2Utils.Debug) {System.out.println(ww);}
-			String c = StdDrawEx2.getCell(cord,cc.getData());
+			String c = StdDrawEx2.getCell(new CellEntry(cellRef),cc.getData());
 			String s1 = table.get(xx,yy).getData();
 			if(c==null) {
 				table.set(xx,yy,s1);

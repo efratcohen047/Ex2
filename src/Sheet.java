@@ -90,7 +90,7 @@ public interface Sheet {
      * You can assume that the width and the height of the loaded SpreadSheet are as defined in
      * Ex2Utils WIDTH & HEIGHT.
      * The text file has the following format:
-     * "First line: just a header line - should not be parsed.
+     * "First line: just a header line - should not be parsed."
      * "Line 1: <x>,<y>, The cell String, remarks (not to be parsed).
      *
      * E.g.,
@@ -101,13 +101,13 @@ public interface Sheet {
      * 0,3,a string without a comma
      *
      * @param fileName a String representing the full (an absolute or relative path tp the saved file).
-     * @throws IOException an exception might be throed if the flie can not be saved.
+     * @throws IOException an exception might be throed if the file can not be saved.
      */
     public void save(String fileName) throws IOException;
     /**
      * Load the content of a saved SpreadSheet into this SpreadSheet.
      * Note: all the old cells in before the load operation will be cleared.
-     * "First line: just a header line - should not be parsed.
+     * "First line: just a header line - should not be parsed."
      * "Line 1: <x>,<y>, The cell String, remarks (not to be parsed).
      *
      * E.g.,

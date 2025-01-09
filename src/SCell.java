@@ -29,16 +29,25 @@ public class SCell implements Cell {
 
     @Override
     public void setData(String s) {
-        data = s;  // Use data instead of line
+        data = s;
         if (isNumber(s)) {
             setType(Ex2Utils.NUMBER);
         } else if (isForm(s)) {
+            // First convert formula to uppercase
+            data = s.toUpperCase();
+            // Try to evaluate it immediately to set the correct error state
             setType(Ex2Utils.FORM);
-            data = s.toUpperCase();  // Convert formula to uppercase
+            String result = evalForm();
+            if (result.equals(Ex2Utils.ERR_FORM)) {
+                setType(Ex2Utils.ERR_FORM_FORMAT);
+            } else if (result.equals(Ex2Utils.ERR_CYCLE)) {
+                setType(Ex2Utils.ERR_CYCLE_FORM);
+            }
         } else {
             setType(Ex2Utils.TEXT);
         }
     }
+
 
     @Override
     public String getData() {
@@ -47,18 +56,26 @@ public class SCell implements Cell {
 
     @Override
     public String toString() {
-        if (type == Ex2Utils.FORM) {
+        if (type == Ex2Utils.FORM ||
+                type == Ex2Utils.ERR_FORM_FORMAT ||
+                type == Ex2Utils.ERR_CYCLE_FORM) {
             try {
-                return evalForm();  // Move all the formula evaluation logic to evalForm()
+                String result = evalForm();
+                // Return error messages for error states
+                if (type == Ex2Utils.ERR_FORM_FORMAT) {
+                    return Ex2Utils.ERR_FORM;
+                }
+                if (type == Ex2Utils.ERR_CYCLE_FORM) {
+                    return Ex2Utils.ERR_CYCLE;
+                }
+                return result;
             } catch (Exception e) {
-                isProcessing = false;
                 type = Ex2Utils.ERR_FORM_FORMAT;
                 return Ex2Utils.ERR_FORM;
             }
         }
         return data;
     }
-
 
     private String evalForm() {
         if (isProcessing) {
@@ -67,27 +84,28 @@ public class SCell implements Cell {
         }
 
         isProcessing = true;
-        String processedFormula = processCellRef(data.toUpperCase());
+        try {
+            String processedFormula = processCellRef(data);
 
-        if (processedFormula.equals(Ex2Utils.ERR_FORM)) {
-            type = Ex2Utils.ERR_FORM_FORMAT;
+            if (processedFormula.equals(Ex2Utils.ERR_FORM)) {
+                type = Ex2Utils.ERR_FORM_FORMAT;
+                return Ex2Utils.ERR_FORM;
+            }
+            if (processedFormula.equals(Ex2Utils.ERR_CYCLE)) {
+                type = Ex2Utils.ERR_CYCLE_FORM;
+                return Ex2Utils.ERR_CYCLE;
+            }
+
+            double value = computeForm(processedFormula);
+            if (value == -1 && !processedFormula.equals("=-1")) {
+                type = Ex2Utils.ERR_FORM_FORMAT;
+                return Ex2Utils.ERR_FORM;
+            }
+
+            return String.valueOf(value);
+        } finally {
             isProcessing = false;
-            return Ex2Utils.ERR_FORM;
         }
-        if (processedFormula.equals(Ex2Utils.ERR_CYCLE)) {
-            type = Ex2Utils.ERR_CYCLE_FORM;
-            isProcessing = false;
-            return Ex2Utils.ERR_CYCLE;
-        }
-
-        double value = computeForm(processedFormula);
-        isProcessing = false;
-
-        if (value == -1 && !processedFormula.equals("=-1")) {
-            type = Ex2Utils.ERR_FORM_FORMAT;
-            return Ex2Utils.ERR_FORM;
-        }
-        return String.valueOf(value);
     }
 
 
