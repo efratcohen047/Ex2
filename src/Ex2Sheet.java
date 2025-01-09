@@ -27,70 +27,55 @@ public class Ex2Sheet implements Sheet {
             return formula;
         }
 
-        // Remove the '=' sign
-        String rawFormula = formula.substring(1);
+        StringBuilder processedFormula = new StringBuilder("=");
+        StringBuilder cellRef = new StringBuilder();
+        boolean inCellRef = false;
 
-        // Check for cycles
-        String cellKey = currentX + "," + currentY;
-        if (processingCells.contains(cellKey)) {
-            get(currentX, currentY).setType(Ex2Utils.ERR_CYCLE_FORM);
-            return Ex2Utils.ERR_CYCLE;
-        }
+        for (int i = 1; i < formula.length(); i++) {
+            char c = formula.charAt(i);
 
-        try {
-            processingCells.add(cellKey);
-
-            // If it's just a cell reference like "=A1"
-            if (rawFormula.matches("[A-Z][0-9]+")) {
-                String value = evaluateCellReference(rawFormula);
-                // If the value is numeric, return it as is
-                try {
-                    double numValue = Double.parseDouble(value);
-                    return value;
-                } catch (NumberFormatException e) {
-                    return Ex2Utils.ERR_FORM;
-                }
+            if (Character.isLetter(c) && i + 1 < formula.length() &&
+                    Character.isDigit(formula.charAt(i + 1))) {
+                inCellRef = true;
+                cellRef.append(c);
+                continue;
             }
 
-            // Replace cell references with their values
-            StringBuilder processedFormula = new StringBuilder("=");
-            StringBuilder token = new StringBuilder();
+            if (inCellRef && Character.isDigit(c)) {
+                cellRef.append(c);
+                continue;
+            }
 
-            for (int i = 0; i < rawFormula.length(); i++) {
-                char c = rawFormula.charAt(i);
-
-                if (Character.isLetter(c) && i + 1 < rawFormula.length() &&
-                        Character.isDigit(rawFormula.charAt(i + 1))) {
-                    // Found potential cell reference
-                    token.append(c);
-                    while (i + 1 < rawFormula.length() && Character.isDigit(rawFormula.charAt(i + 1))) {
-                        token.append(rawFormula.charAt(++i));
-                    }
-
-                    String cellValue = evaluateCellReference(token.toString());
-                    if (cellValue.equals(Ex2Utils.ERR_CYCLE) || cellValue.equals(Ex2Utils.ERR_FORM)) {
-                        return cellValue;
-                    }
-
-                    processedFormula.append(cellValue);
-                    token.setLength(0);
+            if (inCellRef) {
+                // Process cell reference
+                Cell referencedCell = get(cellRef.toString());
+                if (referencedCell != null) {
+                    processedFormula.append(referencedCell.getData());
                 } else {
-                    processedFormula.append(c);
+                    processedFormula.append("0");
                 }
+                cellRef.setLength(0);
+                inCellRef = false;
             }
 
-            // Now compute the formula with replaced values
-            double result = SCell.computeForm(processedFormula.toString());
-            if (result == -1) {
-                return Ex2Utils.ERR_FORM;
-            }
-            return String.valueOf(result);
-
-        } catch (Exception e) {
-            return Ex2Utils.ERR_FORM;
-        } finally {
-            processingCells.remove(cellKey);
+            processedFormula.append(c);
         }
+
+        // Handle last cell reference if any
+        if (inCellRef) {
+            Cell referencedCell = get(cellRef.toString());
+            if (referencedCell != null) {
+                processedFormula.append(referencedCell.getData());
+            } else {
+                processedFormula.append("0");
+            }
+        }
+
+        double result = SCell.computeForm(processedFormula.toString());
+        if (result == -1) {
+            return Ex2Utils.ERR_FORM;
+        }
+        return String.valueOf(result);
     }
 
     private String evaluateCellReference(String ref) {
@@ -171,8 +156,11 @@ public class Ex2Sheet implements Sheet {
 
     @Override
     public void set(int x, int y, String s) {
-        if (isIn( x, y)) {
+        if (isIn(x, y)) {
             Cell c = new SCell(s);
+            if (c instanceof SCell) {  // Type check for safety
+                ((SCell)c).setSheet(this);  // Set the parent sheet
+            }
             table[x][y] = c;
             eval();
         }
