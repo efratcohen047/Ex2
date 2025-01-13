@@ -255,19 +255,34 @@ public class SCell implements Cell {
             return Double.parseDouble(expr);
         }
 
-        // Find the rightmost operator of lowest precedence
-        int lastAdd = expr.lastIndexOf('+');
-        int lastSub = expr.lastIndexOf('-');
-        int lastMul = expr.lastIndexOf('*');
-        int lastDiv = expr.lastIndexOf('/');
+        // Find operators from right to left, handling precedence
+        // First look for addition/subtraction (lower precedence)
+        int lastAdd = -1;
+        int lastSub = -1;
+        int parentheses = 0;
 
-        // Handle addition/subtraction
-        if (lastAdd >= 0 || lastSub >= 0) {
-            int opIndex = Math.max(lastAdd, lastSub);
+        // Scan from right to left to find the rightmost + or - not in parentheses
+        for (int i = expr.length() - 1; i >= 0; i--) {
+            char c = expr.charAt(i);
+            if (c == ')') parentheses++;
+            else if (c == '(') parentheses--;
+            else if (parentheses == 0) {
+                if (c == '+' && (i == 0 || !isOperator(expr.charAt(i-1)))) lastAdd = i;
+                else if (c == '-' && (i == 0 || !isOperator(expr.charAt(i-1)))) lastSub = i;
+            }
+        }
+
+        // Handle addition or subtraction if found
+        int opIndex = Math.max(lastAdd, lastSub);
+        if (opIndex >= 0) {
             char operator = expr.charAt(opIndex);
-
             String leftStr = expr.substring(0, opIndex).trim();
             String rightStr = expr.substring(opIndex + 1).trim();
+
+            // Handle case where minus is a unary operator
+            if (opIndex == 0 && operator == '-') {
+                return -evaluateExpression(rightStr);
+            }
 
             double left = evaluateExpression(leftStr);
             double right = evaluateExpression(rightStr);
@@ -275,11 +290,13 @@ public class SCell implements Cell {
             return operator == '+' ? left + right : left - right;
         }
 
-        // Handle multiplication/division
-        if (lastMul >= 0 || lastDiv >= 0) {
-            int opIndex = Math.max(lastMul, lastDiv);
-            char operator = expr.charAt(opIndex);
+        // If no addition/subtraction, look for multiplication/division
+        int lastMul = expr.lastIndexOf('*');
+        int lastDiv = expr.lastIndexOf('/');
+        opIndex = Math.max(lastMul, lastDiv);
 
+        if (opIndex >= 0) {
+            char operator = expr.charAt(opIndex);
             String leftStr = expr.substring(0, opIndex).trim();
             String rightStr = expr.substring(opIndex + 1).trim();
 
